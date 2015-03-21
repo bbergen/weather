@@ -2,6 +2,12 @@
 import urllib2
 import pygeoip
 
+def get_json(lat, long):
+    weather_url = "http://api.openweathermap.org/data/2.5/weather?" \
+            + "lat=" + str(lat) \
+            + "&lon=" + str(long)
+    response = urllib2.urlopen(weather_url).read()
+    return response
 
 def get_ip():
     return urllib2.urlopen('http://ip.42.pl/raw').read()
@@ -14,10 +20,9 @@ def main():
     ip = get_ip()
     print str(ip)
     record = get_location_record(ip)
-    city = record['city']
-    region = record['region_code']
-    country = record['country_name']
-    print str(city) + ", " + str(region) + ", " + str(country)
+    lat = record['latitude']
+    long = record['longitude']
+    print get_json(lat, long)
 
 if __name__ == "__main__":
     main()
