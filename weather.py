@@ -9,6 +9,7 @@ import json
 KEY = "&key=ce5515ba976cc6b7e8a09c7171123"
 PREFIX = "https://api.worldweatheronline.com/free/v2/weather.ashx?"
 FORMAT = "&format=json"
+IP_FETCH = "http://myexternalip.com/raw"
 
 """ Queries weather server with lat, long
 :param lat: latitude of weather query target
@@ -25,7 +26,7 @@ def get_json(lat, long):
 :returns: A string with the local host's public IP
 """
 def get_ip():
-    return urllib2.urlopen('http://ip.42.pl/raw').read()
+    return urllib2.urlopen(IP_FETCH).read()
 
 """ Fetches a Record from the GeoIP database
 :param ip: The ip address to lookup in GeoIP
