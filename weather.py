@@ -6,10 +6,13 @@ import urllib2
 import pygeoip
 import json
 
+KEY = "&key=ce5515ba976cc6b7e8a09c7171123"
+PREFIX = "https://api.worldweatheronline.com/free/v2/weather.ashx?"
+FORMAT = "&format=json"
+
 def get_json(lat, long):
-    weather_url = "http://api.openweathermap.org/data/2.5/weather?" \
-            + "lat=" + str(lat) \
-            + "&lon=" + str(long)
+    location = "q=" + str(lat) + "," + str(long)
+    weather_url = PREFIX + location + FORMAT + "&num_of_days=1" + KEY
     response = urllib2.urlopen(weather_url).read()
     return json.loads(response)
 
