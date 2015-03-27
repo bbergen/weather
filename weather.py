@@ -1,15 +1,73 @@
 #!/usr/bin/python2
+# Bryan Bergen - 300173752
 from datetime import date
 from pprint import pprint
+from PIL import Image
+from bisect import bisect
+import random
 import datetime
 import urllib2
+import io
 import pygeoip
 import json
+import optparse
 
 KEY = "&key=ce5515ba976cc6b7e8a09c7171123"
 PREFIX = "https://api.worldweatheronline.com/free/v2/weather.ashx?"
 FORMAT = "&format=json"
 IP_FETCH = "http://myexternalip.com/raw"
+
+""" Enum-Like type to define console output modifiers
+"""
+class Font:
+  BLUE = '\033[1;96m'
+  RED = '\033[1;91m'
+  GREEN = '\033[1;92m'
+  YELLOW = '\033[1;93m'
+  BOLD = '\033[1m'
+  UNDERLINE = '\033[4m'
+  END = '\033[0m'
+
+""" Fetches an image from a url
+:param url: url of the image 
+:returns: a file descriptor to the image
+"""
+def get_image(url):
+    imageReq = urllib2.Request(url)
+    imageUrl = urllib2.urlopen(imageReq)
+    image = io.BytesIO(imageUrl.read())
+    return image
+
+""" Converts an image to ascii
+:params i: the image to convert
+:returns: a string containing the ascii
+"""
+def ascii_image(i):
+    tones = [
+        " ",
+        " ",
+        ".,-",
+        "_ivc=!/|\\~",
+        "gjez2]/(YL)t[+T7Vf",
+        "mdK4ZGbNDXY5P*Q",
+        "W8KMA",
+        "#%$"]
+    bounds = [
+        36, 72, 108, 144, 180, 216, 252]
+    print type(i)
+    image = Image.open(i)
+    image = image.resize((100, 50), Image.BILINEAR)
+    image = image.convert("L")
+    str = ""
+    for y in range(0, image.size[1]):
+      for x in range(0, image.size[0]):
+        bright = 255 - image.getpixel((x, y))
+        row = bisect(bounds, bright)
+        possible = tones[row]
+        str = str + possible[random.randint(0, len(possible) - 1)]
+      str = str + '\n'
+    return str
+
 
 """ Queries weather server with lat, long
 :param lat: latitude of weather query target
@@ -48,10 +106,31 @@ def print_weather(json_result):
     current = data['current_condition'][0]
     print type(current)
     print current['weatherIconUrl'][0]['value']
+    image = get_image(current['weatherIconUrl'][0]['value'])
+    print ascii_image(image)
+
+""" Parses command line options
+:returns: map of command line options to values
+"""
+def parse_options():
+    parser = optparse.OptionParser('usage%prog ' + \
+        '[-c <city>] [-z <zipcode>] ' + \
+        '[-p <postal code>] [-f <days of forecast>]')
+    parser.add_option('-c', dest='city', type='string', \
+        help='target for remote forecast')
+    parser.add_option('-z', dest='zip', type='string', \
+        help='target for remote forecast')
+    parser.add_option('-p', dest='pc', type='string', \
+        help='target for remote forecast')
+    parser.add_option('-f', dest='days', type='int', \
+        help='quantity of future forecasting. max 5')
+    (options, args) = parser.parse_args()
 
 def main():
+    parse_options()
     ip = get_ip()
-    print str(ip)
+    print Font.RED + str(ip) + Font.END
+    print Font.YELLOW + "Hello World" + Font.END
     record = get_location_record(ip)
     lat = record['latitude']
     long = record['longitude']
