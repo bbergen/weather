@@ -43,7 +43,11 @@ def print_weather(json_result):
     print "Weather for " + str(date.today())
     print "Current Time: " \
             + datetime.datetime.now().strftime('%H:%M:%S')
-    pprint(json_result)
+    data = json_result['data']
+    print type(data)
+    current = data['current_condition'][0]
+    print type(current)
+    print current['weatherIconUrl'][0]['value']
 
 def main():
     ip = get_ip()
