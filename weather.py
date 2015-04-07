@@ -73,11 +73,18 @@ def ascii_image(i):
 """ Queries weather server with lat, long
 :param lat: latitude of weather query target
 :param long: longitude of weather query target
+:param city: location of query
+:param zip: location of query
+:param pc: location of query
 :param days: number of days (1-5) of forecast
 :returns: a JSON object containing weather data for target
 """
-def get_weather(lat, long, days):
-    location = "q=" + str(lat) + "," + str(long)
+def get_weather(latlong, city, zip, pc, days):
+    latlong = "" if latlong == None else latlong
+    city = "" if city == None else city
+    zip = "" if zip == None else zip
+    pc = "" if pc == None else pc
+    location = "q=" + latlong + city + zip + pc
     weather_url = PREFIX + location + FORMAT + "&num_of_days=" + str(days) + KEY
     response = urllib2.urlopen(weather_url).read()
     return json.loads(response)
@@ -148,18 +155,32 @@ def parse_options():
     else:
       return options
 
+""" Formats the city string for the weather api url
+:param city: The city name as entered by user
+:returns: The city name stripped of spaces
+"""
+def format_city(city):
+  if city != None:
+    return city.replace(' ', '+')
+  else:
+    return None
+
 def main():
     options = parse_options()
     print options
-    ip = get_ip()
-    print Font.RED + str(ip) + Font.END
-    print Font.YELLOW + "Hello World" + Font.END
-    record = get_location_record(ip)
-    print str(record['city'])
-    lat = record['latitude']
-    long = record['longitude']
     days = options.days if options.days != None else 1 
-    weather = get_weather(lat, long, days)
+    city = format_city(options.city)
+    zip = options.zip
+    pc = options.pc
+    latlong = None
+    if city == None and zip == None and pc == None:
+      ip = get_ip()
+      record = get_location_record(ip)
+      lat = record['latitude']
+      long = record['longitude']
+      print str(record['city'])
+      latlong = str(lat) + "," + str(long)
+    weather = get_weather(latlong, city, zip, pc, days)
     print_weather(weather)
 
 if __name__ == "__main__":
