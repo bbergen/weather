@@ -29,6 +29,15 @@ class Font:
   UNDERLINE = '\033[4m'
   END = '\033[0m'
 
+class Weather:
+  def __init__(self, date, forecast):
+    self.date = date
+    self.forecast = forecast
+
+  def print_day(self):
+    print self.date
+    print self.forecast
+
 """ Fetches an image from a url
 :param url: url of the image 
 :returns: a file descriptor to the image
@@ -181,7 +190,9 @@ def main():
       print str(record['city'])
       latlong = str(lat) + "," + str(long)
     weather = get_weather(latlong, city, zip, pc, days)
-    print_weather(weather)
+    #print_weather(weather)
+    d = Weather("tomorrow", "Sunny!")
+    d.print_day()
 
 if __name__ == "__main__":
     main()
