@@ -37,13 +37,13 @@ class Current:
 
     def display(self, screen):
       screen.addstr(3,2, "Current Conditions", curses.color_pair(YELLOW))
-      screen.addstr(5,2, "Description: " + str(self.desc))
-      screen.addstr(6,2, "Temp C: " + str(self.temp_c))
-      screen.addstr(7,2, "Temp F: " + str(self.temp_f))
-      screen.addstr(8,2, "Windspeed: " + str(self.windspeed))
-      screen.addstr(9,2, "Wind Dir: " + str(self.windDir))
-      screen.addstr(10,2, "Humidity: " + str(self.humidity))
-      ascii_image(get_image(self.icon), screen)
+      screen.addstr(5,2, self.desc, curses.color_pair(GREEN))
+      screen.addstr(6,2, "Temp C: " + self.temp_c)
+      screen.addstr(7,2, "Temp F: " + self.temp_f)
+      screen.addstr(8,2, "Windspeed: " + self.windspeed)
+      screen.addstr(9,2, "Wind Dir: " + self.windDir)
+      screen.addstr(10,2, "Humidity: " + self.humidity)
+      #ascii_image(get_image(self.icon), screen)
 
     def __str__(self):
       rtn = "--Current conditions--\n" + \
@@ -69,7 +69,20 @@ class Forecast:
       self.icon = icon
 
     def display(self, screen, startx, starty):
-      screen.addstr(starty, startx, "Testing...")
+      try:
+        screen.addstr(starty, startx, "Forecast for " + self.date, curses.color_pair(YELLOW))
+        screen.addstr(starty + 2, startx, self.desc, curses.color_pair(GREEN))
+        screen.addstr(starty + 3, startx, "Minimum Temp: " + self.minTempC)
+        screen.addstr(starty + 4, startx, "Maximum Temp: " + self.maxTempC)
+        screen.addstr(starty + 5, startx, "UV Index: " + self.uvIndex)
+        screen.addstr(starty + 6, startx, "Sunrise: " + self.sunrise)
+        screen.addstr(starty + 7, startx, "Sunset: " + self.sunset)
+      except Exception as e: 
+        print "Error: Screen size too small. Try again with a larger terminal size"
+        finalize_display()
+        print e
+        exit()
+
 
     def __str__(self):
       rtn = "Forecast for: " + self.date + "\n" + \
@@ -81,16 +94,23 @@ class Forecast:
           "Sunset: " + self.sunset + "\n" 
       return "------------------------\n" + rtn
 
-def display(current, forecasts):
-  screen = init_screen()
+""" Displays the retrieved results in an ncurses display
+:params screen: ncurses screen to present upon
+:params current: the current weather object
+:params forecasts: a collection of retrieved forecasts
+"""
+def display(screen, current, forecasts):
+  screen.clear()
   screen.border(0)
   display_title(screen)
   get_current_conditions(current).display(screen)
+  x = 25
+  for forecast in forecasts:
+    forecast.display(screen, x, 3)
+    x = x + 25
   screen.refresh()
-  screen.getch()
+  screen.getch() # pause the app until user input
   finalize_display()
-  #for forecast in forecasts:
-  #  print forecast
 
 """ Draws the application title in the centre
 :param screen: ncurses screen object to draw on
@@ -100,6 +120,9 @@ def display_title(screen):
   mid = (y_x[1] >> 1) - (len(TITLE) >> 1)
   screen.addstr(1,mid, TITLE, curses.color_pair(RED))
 
+
+""" Initializes the color settings
+"""
 def init_color_pairs():
   curses.start_color()
   curses.use_default_colors()
@@ -217,21 +240,6 @@ def get_location_record(ip):
     geo_con = pygeoip.GeoIP('/opt/GeoIP/GeoIP.dat')
     return geo_con.record_by_addr(ip)
 
-""" Prints the weather results to console
-:param json_result: A JSON object containing weather results
-"""
-def print_weather(json_result):
-    print "Weather for " + str(date.today())
-    print "Current Time: " \
-            + datetime.datetime.now().strftime('%H:%M:%S')
-    data = json_result['data']
-    print type(data)
-    current = data['current_condition'][0]
-    print type(current)
-    print current['weatherIconUrl'][0]['value']
-    image = get_image(current['weatherIconUrl'][0]['value'])
-    print ascii_image(image)
-
 """ Parses the json weather result for the current conditions
 :param json_result: json object from weather api
 :returns: the results encapsulated in a Current object
@@ -293,7 +301,20 @@ def format_city(city):
   else:
     return None
 
-def main():
+def print_loading(screen):
+  y_x = screen.getmaxyx()
+  loading = "Loading Weather Data..."
+  l = len(loading)
+  x = (y_x[1] - l) >> 1
+  y = y_x[0] >> 1
+  screen.border(0)
+  display_title(screen)
+  screen.addstr(y, x, loading, curses.color_pair(YELLOW))
+  screen.refresh()
+
+def main(stdscr):
+    init_color_pairs()
+    print_loading(stdscr)
     options = parse_options()
     days = options.days if options.days != None else 1 
     city = format_city(options.city)
@@ -308,7 +329,7 @@ def main():
       latlong = str(lat) + "," + str(long)
     weather = get_weather(latlong, city, zip, pc, days)
     forecasts = get_forecasts(weather, days)
-    display(weather, forecasts)
+    display(stdscr, weather, forecasts)
 
 if __name__ == "__main__":
-    main()
+  curses.wrapper(main)
