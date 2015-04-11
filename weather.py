@@ -4,6 +4,7 @@ from datetime import date
 from pprint import pprint
 from PIL import Image
 from bisect import bisect
+import curses
 import PIL.ImageOps
 import random
 import datetime
@@ -17,17 +18,12 @@ KEY = "&key=ce5515ba976cc6b7e8a09c7171123"
 PREFIX = "https://api.worldweatheronline.com/free/v2/weather.ashx?"
 FORMAT = "&format=json"
 IP_FETCH = "http://myexternalip.com/raw"
+TITLE = "Welcome to Bryan's Weather App"
 
-""" Enum-Like type to define console output modifiers
-"""
-class Font:
-  BLUE = '\033[1;96m'
-  RED = '\033[1;91m'
-  GREEN = '\033[1;92m'
-  YELLOW = '\033[1;93m'
-  BOLD = '\033[1m'
-  UNDERLINE = '\033[4m'
-  END = '\033[0m'
+RED = 1
+GREEN = 2
+YELLOW = 3
+CYAN = 4
 
 class Current:
     def __init__(self, temp_c, temp_f, icon, windspeed, windDir, desc, humidity):
@@ -39,15 +35,24 @@ class Current:
       self.desc = desc
       self.humidity = humidity
 
+    def display(self, screen):
+      screen.addstr(3,2, "Current Conditions", curses.color_pair(YELLOW))
+      screen.addstr(5,2, "Description: " + str(self.desc))
+      screen.addstr(6,2, "Temp C: " + str(self.temp_c))
+      screen.addstr(7,2, "Temp F: " + str(self.temp_f))
+      screen.addstr(8,2, "Windspeed: " + str(self.windspeed))
+      screen.addstr(9,2, "Wind Dir: " + str(self.windDir))
+      screen.addstr(10,2, "Humidity: " + str(self.humidity))
+      ascii_image(get_image(self.icon), screen)
+
     def __str__(self):
-      rtn = Font.RED + "--Current conditions--\n" + Font.END + \
-      Font.YELLOW + "Description: " + Font.END + str(self.desc) + "\n" + \
-      Font.YELLOW + "Temp C: " + Font.END + str(self.temp_c) + "\n" + \
-      Font.YELLOW + "Temp F: " + Font.END + str(self.temp_f) + "\n" + \
-      Font.YELLOW + "Windspeed: " + Font.END + str(self.windspeed) + "\n" + \
-      Font.YELLOW + "Wind Direction: " + Font.END + str(self.windDir) + "\n" + \
-      Font.YELLOW + "Humidity: " + Font.END + str(self.humidity) + "\n" + \
-      str(self.icon) 
+      rtn = "--Current conditions--\n" + \
+      "Description: " + str(self.desc) + "\n" + \
+      "Temp C: " + str(self.temp_c) + "\n" + \
+      "Temp F: " + str(self.temp_f) + "\n" + \
+      "Windspeed: " + str(self.windspeed) + "\n" + \
+      "Wind Direction: " + str(self.windDir) + "\n" + \
+      "Humidity: " + str(self.humidity) + "\n" 
       return rtn
 
 """ Encapsulation of a forecast
@@ -63,8 +68,59 @@ class Forecast:
       self.desc = desc
       self.icon = icon
 
+    def display(self, screen, startx, starty):
+      screen.addstr(starty, startx, "Testing...")
+
     def __str__(self):
-      return self.date + " Testing..."
+      rtn = "Forecast for: " + self.date + "\n" + \
+          "Description: " + self.desc + "\n" + \
+          "Max Temp: " + self.maxTempC + "\n" + \
+          "Min Temp: " + self.minTempC + "\n" + \
+          "UV Index: " + self.uvIndex + "\n" + \
+          "Sunrise: " + self.sunrise + "\n" + \
+          "Sunset: " + self.sunset + "\n" 
+      return "------------------------\n" + rtn
+
+def display(current, forecasts):
+  screen = init_screen()
+  screen.border(0)
+  display_title(screen)
+  get_current_conditions(current).display(screen)
+  screen.refresh()
+  screen.getch()
+  finalize_display()
+  #for forecast in forecasts:
+  #  print forecast
+
+""" Draws the application title in the centre
+:param screen: ncurses screen object to draw on
+"""
+def display_title(screen):
+  y_x = screen.getmaxyx()
+  mid = (y_x[1] >> 1) - (len(TITLE) >> 1)
+  screen.addstr(1,mid, TITLE, curses.color_pair(RED))
+
+def init_color_pairs():
+  curses.start_color()
+  curses.use_default_colors()
+  curses.init_pair(RED, curses.COLOR_RED, -1)
+  curses.init_pair(GREEN, curses.COLOR_GREEN, -1)
+  curses.init_pair(YELLOW, curses.COLOR_YELLOW, -1)
+  curses.init_pair(CYAN, curses.COLOR_CYAN, -1)
+
+""" Initializes the ncurses tools
+"""
+def init_screen():
+  screen = curses.initscr()
+  curses.noecho()
+  init_color_pairs()
+  return screen
+
+""" Returns screen to default state
+"""
+def finalize_display():
+  curses.echo()
+  curses.endwin()
 
 """ Fetches an image from a url
 :param url: url of the image 
@@ -76,11 +132,11 @@ def get_image(url):
     image = io.BytesIO(imageUrl.read())
     return image
 
-""" Converts an image to ascii
+""" Converts an image to ascii, and draws in on screen
 :params i: the image to convert
-:returns: a string containing the ascii
+:params screen: an ncurses screen object to draw upon
 """
-def ascii_image(i):
+def ascii_image(i, screen):
     tones = [
         " ",
         " ",
@@ -92,9 +148,8 @@ def ascii_image(i):
         "#%$"]
     bounds = [
         36, 72, 108, 144, 180, 216, 252]
-    print type(i)
     image = Image.open(i)
-    image = image.resize((100, 50), Image.BILINEAR)
+    image = image.resize((80, 40), Image.BILINEAR)
     image = image.convert("L")
     str = ""
     for y in range(0, image.size[1]):
@@ -103,8 +158,8 @@ def ascii_image(i):
         row = bisect(bounds, bright)
         possible = tones[row]
         str = str + possible[random.randint(0, len(possible) - 1)]
-      str = str + '\n'
-    return str
+      screen.addstr(y + 15, 2, str, curses.color_pair(CYAN))
+      str = ""
 
 """ Parses a json object for a list of forecasts
 :param json_result: Json response from weather api
@@ -177,7 +232,11 @@ def print_weather(json_result):
     image = get_image(current['weatherIconUrl'][0]['value'])
     print ascii_image(image)
 
-def print_current_conditions(json_result):
+""" Parses the json weather result for the current conditions
+:param json_result: json object from weather api
+:returns: the results encapsulated in a Current object
+"""
+def get_current_conditions(json_result):
     current = json_result['data']['current_condition'][0]
     cur_weather = Current(current['temp_C'], \
         current['temp_F'], \
@@ -186,13 +245,13 @@ def print_current_conditions(json_result):
         current['winddir16Point'], \
         current['weatherDesc'][0]['value'], \
         current['humidity'])
-    print cur_weather
+    return cur_weather
 
 """ Parses command line options and handles errors
 :returns: An options object containing commandline arguments
 """
 def parse_options():
-    parser = optparse.OptionParser('usage%prog ' + \
+    parser = optparse.OptionParser('%prog ' + \
         '[-c <city> | -z <zipcode> | ' + \
         '-p <postal code>] [-d <days of forecast>]')
     parser.add_option('-c', dest='city', type='string', \
@@ -236,7 +295,6 @@ def format_city(city):
 
 def main():
     options = parse_options()
-    print options
     days = options.days if options.days != None else 1 
     city = format_city(options.city)
     zip = options.zip
@@ -247,13 +305,10 @@ def main():
       record = get_location_record(ip)
       lat = record['latitude']
       long = record['longitude']
-      print str(record['city'])
       latlong = str(lat) + "," + str(long)
     weather = get_weather(latlong, city, zip, pc, days)
-    print_current_conditions(weather)
     forecasts = get_forecasts(weather, days)
-    for forecast in forecasts:
-      print forecast
+    display(weather, forecasts)
 
 if __name__ == "__main__":
     main()
