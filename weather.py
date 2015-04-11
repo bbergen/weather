@@ -29,14 +29,42 @@ class Font:
   UNDERLINE = '\033[4m'
   END = '\033[0m'
 
-class Weather:
-  def __init__(self, date, forecast):
-    self.date = date
-    self.forecast = forecast
+class Current:
+    def __init__(self, temp_c, temp_f, icon, windspeed, windDir, desc, humidity):
+      self.temp_c = temp_c
+      self.temp_f = temp_f
+      self.icon = icon
+      self.windspeed = windspeed
+      self.windDir = windDir
+      self.desc = desc
+      self.humidity = humidity
 
-  def print_day(self):
-    print self.date
-    print self.forecast
+    def __str__(self):
+      rtn = Font.RED + "--Current conditions--\n" + Font.END + \
+      Font.YELLOW + "Description: " + Font.END + str(self.desc) + "\n" + \
+      Font.YELLOW + "Temp C: " + Font.END + str(self.temp_c) + "\n" + \
+      Font.YELLOW + "Temp F: " + Font.END + str(self.temp_f) + "\n" + \
+      Font.YELLOW + "Windspeed: " + Font.END + str(self.windspeed) + "\n" + \
+      Font.YELLOW + "Wind Direction: " + Font.END + str(self.windDir) + "\n" + \
+      Font.YELLOW + "Humidity: " + Font.END + str(self.humidity) + "\n" + \
+      str(self.icon) 
+      return rtn
+
+""" Encapsulation of a forecast
+"""
+class Forecast:
+    def __init__(self, date, minTempC, maxTempC, uvIndex, sunrise, sunset, desc, icon):
+      self.date = date
+      self.minTempC = minTempC
+      self.maxTempC = maxTempC
+      self.uvIndex = uvIndex
+      self.sunrise = sunrise
+      self.sunset = sunset
+      self.desc = desc
+      self.icon = icon
+
+    def __str__(self):
+      return self.date + " Testing..."
 
 """ Fetches an image from a url
 :param url: url of the image 
@@ -78,6 +106,28 @@ def ascii_image(i):
       str = str + '\n'
     return str
 
+""" Parses a json object for a list of forecasts
+:param json_result: Json response from weather api
+:param days: number of days requested
+:returns: a collection of Weather objects
+"""
+def get_forecasts(json_result, days):
+    raw_forecasts = json_result['data']['weather']
+    forecast_range = []
+    if days > 0:
+      for day in range(days):
+        weather = raw_forecasts[day]
+        min_temp = weather['mintempC']
+        max_temp = weather['maxtempC']
+        uv_index = weather['uvIndex']
+        sunrise = weather['astronomy'][0]['sunrise']
+        sunset = weather['astronomy'][0]['sunset']
+        date = weather['date']
+        desc = weather['hourly'][0]['weatherDesc'][0]['value']
+        icon = weather['hourly'][0]['weatherIconUrl'][0]['value']
+        forecast = Forecast(date, min_temp, max_temp, uv_index, sunrise, sunset, desc, icon)
+        forecast_range.append(forecast)
+    return forecast_range
 
 """ Queries weather server with lat, long
 :param lat: latitude of weather query target
@@ -126,7 +176,17 @@ def print_weather(json_result):
     print current['weatherIconUrl'][0]['value']
     image = get_image(current['weatherIconUrl'][0]['value'])
     print ascii_image(image)
-    pprint(json_result)
+
+def print_current_conditions(json_result):
+    current = json_result['data']['current_condition'][0]
+    cur_weather = Current(current['temp_C'], \
+        current['temp_F'], \
+        current['weatherIconUrl'][0]['value'], \
+        current['windspeedKmph'], \
+        current['winddir16Point'], \
+        current['weatherDesc'][0]['value'], \
+        current['humidity'])
+    print cur_weather
 
 """ Parses command line options and handles errors
 :returns: An options object containing commandline arguments
@@ -134,14 +194,14 @@ def print_weather(json_result):
 def parse_options():
     parser = optparse.OptionParser('usage%prog ' + \
         '[-c <city> | -z <zipcode> | ' + \
-        '-p <postal code>] [-f <days of forecast>]')
+        '-p <postal code>] [-d <days of forecast>]')
     parser.add_option('-c', dest='city', type='string', \
         help='target for remote forecast')
     parser.add_option('-z', dest='zip', type='string', \
         help='target for remote forecast')
     parser.add_option('-p', dest='pc', type='string', \
         help='target for remote forecast')
-    parser.add_option('-f', dest='days', type='int', \
+    parser.add_option('-d', dest='days', type='int', \
         help='quantity of future forecasting. max 5')
     (options, args) = parser.parse_args()
     c = options.city == None
@@ -190,9 +250,10 @@ def main():
       print str(record['city'])
       latlong = str(lat) + "," + str(long)
     weather = get_weather(latlong, city, zip, pc, days)
-    #print_weather(weather)
-    d = Weather("tomorrow", "Sunny!")
-    d.print_day()
+    print_current_conditions(weather)
+    forecasts = get_forecasts(weather, days)
+    for forecast in forecasts:
+      print forecast
 
 if __name__ == "__main__":
     main()
