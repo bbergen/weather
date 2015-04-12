@@ -19,12 +19,15 @@ PREFIX = "https://api.worldweatheronline.com/free/v2/weather.ashx?"
 FORMAT = "&format=json"
 IP_FETCH = "http://myexternalip.com/raw"
 TITLE = "Welcome to Bryan's Weather App"
+DEFAULT_WIDTH = 30
 
 RED = 1
 GREEN = 2
 YELLOW = 3
 CYAN = 4
 
+""" Encapsulates the current weather conditions
+"""
 class Current:
     def __init__(self, temp_c, temp_f, icon, windspeed, windDir, desc, humidity):
       self.temp_c = temp_c
@@ -35,25 +38,15 @@ class Current:
       self.desc = desc
       self.humidity = humidity
 
-    def display(self, screen):
-      screen.addstr(3,2, "Current Conditions", curses.color_pair(YELLOW))
-      screen.addstr(5,2, self.desc, curses.color_pair(GREEN))
-      screen.addstr(6,2, "Temp C: " + self.temp_c)
-      screen.addstr(7,2, "Temp F: " + self.temp_f)
-      screen.addstr(8,2, "Windspeed: " + self.windspeed)
-      screen.addstr(9,2, "Wind Dir: " + self.windDir)
-      screen.addstr(10,2, "Humidity: " + self.humidity)
+    def display(self, screen, x):
+      screen.addstr(3,x, "Current Conditions", curses.color_pair(YELLOW))
+      screen.addstr(5,x, self.desc, curses.color_pair(GREEN))
+      screen.addstr(6,x, "Temp C: " + self.temp_c)
+      screen.addstr(7,x, "Temp F: " + self.temp_f)
+      screen.addstr(8,x, "Windspeed: " + self.windspeed)
+      screen.addstr(9,x, "Wind Dir: " + self.windDir)
+      screen.addstr(10,x, "Humidity: " + self.humidity)
       #ascii_image(get_image(self.icon), screen)
-
-    def __str__(self):
-      rtn = "--Current conditions--\n" + \
-      "Description: " + str(self.desc) + "\n" + \
-      "Temp C: " + str(self.temp_c) + "\n" + \
-      "Temp F: " + str(self.temp_f) + "\n" + \
-      "Windspeed: " + str(self.windspeed) + "\n" + \
-      "Wind Direction: " + str(self.windDir) + "\n" + \
-      "Humidity: " + str(self.humidity) + "\n" 
-      return rtn
 
 """ Encapsulation of a forecast
 """
@@ -69,30 +62,13 @@ class Forecast:
       self.icon = icon
 
     def display(self, screen, startx, starty):
-      try:
-        screen.addstr(starty, startx, "Forecast for " + self.date, curses.color_pair(YELLOW))
-        screen.addstr(starty + 2, startx, self.desc, curses.color_pair(GREEN))
-        screen.addstr(starty + 3, startx, "Minimum Temp: " + self.minTempC)
-        screen.addstr(starty + 4, startx, "Maximum Temp: " + self.maxTempC)
-        screen.addstr(starty + 5, startx, "UV Index: " + self.uvIndex)
-        screen.addstr(starty + 6, startx, "Sunrise: " + self.sunrise)
-        screen.addstr(starty + 7, startx, "Sunset: " + self.sunset)
-      except Exception as e: 
-        print "Error: Screen size too small. Try again with a larger terminal size"
-        finalize_display()
-        print e
-        exit()
-
-
-    def __str__(self):
-      rtn = "Forecast for: " + self.date + "\n" + \
-          "Description: " + self.desc + "\n" + \
-          "Max Temp: " + self.maxTempC + "\n" + \
-          "Min Temp: " + self.minTempC + "\n" + \
-          "UV Index: " + self.uvIndex + "\n" + \
-          "Sunrise: " + self.sunrise + "\n" + \
-          "Sunset: " + self.sunset + "\n" 
-      return "------------------------\n" + rtn
+      screen.addstr(starty, startx, "Forecast for " + self.date, curses.color_pair(YELLOW))
+      screen.addstr(starty + 2, startx, self.desc, curses.color_pair(GREEN))
+      screen.addstr(starty + 3, startx, "Minimum Temp: " + self.minTempC)
+      screen.addstr(starty + 4, startx, "Maximum Temp: " + self.maxTempC)
+      screen.addstr(starty + 5, startx, "UV Index: " + self.uvIndex)
+      screen.addstr(starty + 6, startx, "Sunrise: " + self.sunrise)
+      screen.addstr(starty + 7, startx, "Sunset: " + self.sunset)
 
 """ Displays the retrieved results in an ncurses display
 :params screen: ncurses screen to present upon
@@ -103,21 +79,32 @@ def display(screen, current, forecasts):
   screen.clear()
   screen.border(0)
   display_title(screen)
-  get_current_conditions(current).display(screen)
-  x = 25
+  start_x = get_start_x(screen, len(forecasts))
+  get_current_conditions(current).display(screen, start_x)
+  start_x += DEFAULT_WIDTH
   for forecast in forecasts:
-    forecast.display(screen, x, 3)
-    x = x + 25
+    forecast.display(screen, start_x, 3)
+    start_x += DEFAULT_WIDTH
   screen.refresh()
   screen.getch() # pause the app until user input
   finalize_display()
+
+""" Fetches the amount of horizontal space for each forecast
+:param screen: The ncurses screen object
+:param days: Number of days
+:returns: 
+"""
+def get_start_x(screen, days):
+  needed_width = (days + 1) * DEFAULT_WIDTH
+  width = screen.getmaxyx()[1]
+  return (width - needed_width) >> 1 #bit shifts are cooler than division
 
 """ Draws the application title in the centre
 :param screen: ncurses screen object to draw on
 """
 def display_title(screen):
   y_x = screen.getmaxyx()
-  mid = (y_x[1] >> 1) - (len(TITLE) >> 1)
+  mid = (y_x[1] - len(TITLE)) >> 1 #yay more shifts
   screen.addstr(1,mid, TITLE, curses.color_pair(RED))
 
 
@@ -301,6 +288,9 @@ def format_city(city):
   else:
     return None
 
+""" Prints a message to the screen while data is fetched
+:param screen: ncurses screen to write upon
+"""
 def print_loading(screen):
   y_x = screen.getmaxyx()
   loading = "Loading Weather Data..."
@@ -312,11 +302,10 @@ def print_loading(screen):
   screen.addstr(y, x, loading, curses.color_pair(YELLOW))
   screen.refresh()
 
-def main(stdscr):
+def main(stdscr, options):
     init_color_pairs()
     print_loading(stdscr)
-    options = parse_options()
-    days = options.days if options.days != None else 1 
+    days = options.days if options.days != None else 0 
     city = format_city(options.city)
     zip = options.zip
     pc = options.pc
@@ -332,4 +321,9 @@ def main(stdscr):
     display(stdscr, weather, forecasts)
 
 if __name__ == "__main__":
-  curses.wrapper(main)
+  options = parse_options()
+  try:
+    curses.wrapper(main, options)
+  except Exception as e:
+    print "Error: Problem rendering weather results. Try increasing your terminal size"
+    print e
