@@ -54,16 +54,17 @@ class Forecast:
     def display_image(self, screen, x, y):
       ascii_image(get_image(self.icon), screen, x, y)
 
-    def display(self, screen, startx, starty):
-      screen.addstr(starty, startx, "Forecast for " + self.date, curses.color_pair(YELLOW))
-      screen.addstr(starty + 2, startx, self.desc, curses.color_pair(GREEN))
-      screen.addstr(starty + 3, startx, "Min Temp C: " + self.minTempC)
-      screen.addstr(starty + 4, startx, "Max Temp C: " + self.maxTempC)
-      screen.addstr(starty + 5, startx, "UV Index: " + self.uvIndex)
-      screen.addstr(starty + 6, startx, "Sunrise: " + self.sunrise)
-      screen.addstr(starty + 7, startx, "Sunset: " + self.sunset)
+    def display(self, screen, x, y):
+      screen.addstr(y, x, "Forecast for " + self.date, curses.color_pair(YELLOW))
+      screen.addstr(y + 2, x, self.desc, curses.color_pair(GREEN))
+      screen.addstr(y + 3, x, "Min Temp C: " + self.minTempC)
+      screen.addstr(y + 4, x, "Max Temp C: " + self.maxTempC)
+      screen.addstr(y + 5, x, "UV Index: " + self.uvIndex)
+      screen.addstr(y + 6, x, "Sunrise: " + self.sunrise)
+      screen.addstr(y + 7, x, "Sunset: " + self.sunset)
 
 """ Encapsulates the current weather conditions
+    Extends from Forecast
 """
 class Current(Forecast):
     def __init__(self, temp_c, temp_f, icon, windspeed, windDir, desc, humidity):
@@ -76,19 +77,19 @@ class Current(Forecast):
       self.humidity = humidity
 
     def display(self, screen, x, y):
-      screen.addstr(y,x, "Current Conditions", curses.color_pair(YELLOW))
-      screen.addstr(y + 2,x, self.desc, curses.color_pair(GREEN))
-      screen.addstr(y + 3,x, "Temp C: " + self.temp_c)
-      screen.addstr(y + 4,x, "Temp F: " + self.temp_f)
-      screen.addstr(y + 5,x, "Windspeed: " + self.windspeed)
-      screen.addstr(y + 6,x, "Wind Dir: " + self.windDir)
-      screen.addstr(y + 7,x, "Humidity: " + self.humidity)
+      screen.addstr(y, x, "Current Conditions", curses.color_pair(YELLOW))
+      screen.addstr(y + 2, x, self.desc, curses.color_pair(GREEN))
+      screen.addstr(y + 3, x, "Temp C: " + self.temp_c)
+      screen.addstr(y + 4, x, "Temp F: " + self.temp_f)
+      screen.addstr(y + 5, x, "Windspeed: " + self.windspeed)
+      screen.addstr(y + 6, x, "Wind Dir: " + self.windDir)
+      screen.addstr(y + 7, x, "Humidity: " + self.humidity)
 
 """ Displays the retrieved results in an ncurses display
 :params screen: ncurses screen to present upon
 :params current: the current weather object
 :params forecasts: a collection of retrieved forecasts
-:params icon: if the icons should be displayed
+:params icons: if the icons should be displayed
 """
 def display(screen, current, forecasts, icons):
   screen.clear()
@@ -113,18 +114,17 @@ def display(screen, current, forecasts, icons):
 def map_forecasts(screen, current, forecasts, icons):
   map = {}
   screen_width = screen.getmaxyx()[1]
-  per_row = screen_width / DEFAULT_WIDTH
-  x = (screen_width - DEFAULT_WIDTH * per_row) >> 1
+  needed_width = DEFAULT_WIDTH if icons else 30
+  per_row = screen_width / needed_width
+  x = (screen_width - needed_width * per_row) >> 1
   y = START_HEIGHT
   map[(x,y)] = current
   for forecast in forecasts:
-    x += DEFAULT_WIDTH
-    if x + DEFAULT_WIDTH > screen_width:
-      x = (screen_width - DEFAULT_WIDTH * per_row) >> 1
-      if icons:
-        y += DEFAULT_HEIGHT
-      else:
-        y += 10
+    x += needed_width
+    if x + needed_width > screen_width:
+      x = (screen_width - needed_width * per_row) >> 1
+      add_y = DEFAULT_HEIGHT if icons else 10
+      y += add_y
     map[(x,y)] = forecast
   return map
 
@@ -182,7 +182,7 @@ def ascii_image(i, screen, start_x, start_y):
     tones = [
         " ",
         " ",
-        ".,-",
+        ".,",
         "_ivc=!/|\\~",
         "gjez2]/(YL)t[+T7Vf",
         "mdK4ZGbNDXY5P*Q",
@@ -193,15 +193,14 @@ def ascii_image(i, screen, start_x, start_y):
     image = Image.open(i)
     image = image.resize((30, 15), Image.BILINEAR)
     image = image.convert("L")
-    str = ""
     for y in range(0, image.size[1]):
+      str = ""
       for x in range(0, image.size[0]):
         bright = 255 - image.getpixel((x, y))
         row = bisect(bounds, bright)
         possible = tones[row]
         str = str + possible[random.randint(0, len(possible) - 1)]
-      screen.addstr(y + start_y, start_x, str, curses.color_pair(CYAN))
-      str = ""
+      screen.addstr(y + start_y, start_x, str, curses.color_pair(GREEN))
 
 """ Parses a json object for a list of forecasts
 :param json_result: Json response from weather api
@@ -221,7 +220,7 @@ def get_forecasts(json_result, days):
         sunset = weather['astronomy'][0]['sunset']
         date = weather['date']
         desc = weather['hourly'][0]['weatherDesc'][0]['value']
-        icon = weather['hourly'][0]['weatherIconUrl'][0]['value']
+        icon = weather['hourly'][3]['weatherIconUrl'][0]['value']
         forecast = Forecast(date, min_temp, max_temp, uv_index, sunrise, sunset, desc, icon)
         forecast_range.append(forecast)
     return forecast_range
@@ -349,8 +348,7 @@ def main(stdscr, options):
     if city == None and zip == None and pc == None:
       ip = get_ip()
       record = get_location_record(ip)
-      lat = record['latitude']
-      long = record['longitude']
+      city = record['city']
     weather = get_weather(latlong, city, zip, pc, days)
     forecasts = get_forecasts(weather, days)
     current_weather = get_current_conditions(weather)
