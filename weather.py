@@ -1,5 +1,14 @@
 #!/usr/bin/python2
 # Bryan Bergen - 300173752
+"""
+This script will display the current weather conditions and up
+to 5 days of forecasts based on the location passed in on the 
+command line. Location can be passed as a city name, zip code,
+or Canadian postal code.
+If no location is passed, the script will look up the current
+location based on public IP address. 
+Type ./weather.py --help for more information
+"""
 from datetime import date
 from pprint import pprint
 from PIL import Image
@@ -20,6 +29,8 @@ FORMAT = "&format=json"
 IP_FETCH = "http://myexternalip.com/raw"
 TITLE = "Welcome to Bryan's Weather App"
 DEFAULT_WIDTH = 30
+DEFAULT_HEIGHT = 10
+START_HEIGHT = 3
 
 RED = 1
 GREEN = 2
@@ -38,14 +49,14 @@ class Current:
       self.desc = desc
       self.humidity = humidity
 
-    def display(self, screen, x):
-      screen.addstr(3,x, "Current Conditions", curses.color_pair(YELLOW))
-      screen.addstr(5,x, self.desc, curses.color_pair(GREEN))
-      screen.addstr(6,x, "Temp C: " + self.temp_c)
-      screen.addstr(7,x, "Temp F: " + self.temp_f)
-      screen.addstr(8,x, "Windspeed: " + self.windspeed)
-      screen.addstr(9,x, "Wind Dir: " + self.windDir)
-      screen.addstr(10,x, "Humidity: " + self.humidity)
+    def display(self, screen, x, y):
+      screen.addstr(y,x, "Current Conditions", curses.color_pair(YELLOW))
+      screen.addstr(y + 2,x, self.desc, curses.color_pair(GREEN))
+      screen.addstr(y + 3,x, "Temp C: " + self.temp_c)
+      screen.addstr(y + 4,x, "Temp F: " + self.temp_f)
+      screen.addstr(y + 5,x, "Windspeed: " + self.windspeed)
+      screen.addstr(y + 6,x, "Wind Dir: " + self.windDir)
+      screen.addstr(y + 7,x, "Humidity: " + self.humidity)
       #ascii_image(get_image(self.icon), screen)
 
 """ Encapsulation of a forecast
@@ -79,32 +90,41 @@ def display(screen, current, forecasts):
   screen.clear()
   screen.border(0)
   display_title(screen)
-  start_x = get_start_x(screen, len(forecasts))
-  get_current_conditions(current).display(screen, start_x)
-  start_x += DEFAULT_WIDTH
-  for forecast in forecasts:
-    forecast.display(screen, start_x, 3)
-    start_x += DEFAULT_WIDTH
+  display_map = map_forecasts(screen, current, forecasts)
+  for key in display_map:
+    display_map[key].display(screen, key[0], key[1])
   screen.refresh()
   screen.getch() # pause the app until user input
   finalize_display()
 
-""" Fetches the amount of horizontal space for each forecast
+""" Maps each forcast to an x,y coordinate
 :param screen: The ncurses screen object
-:param days: Number of days
-:returns: 
+:param forecasts: The series of forecasts
+:param current: The current weather conditions
+:returns: a map of (x,y) tuples to forecasts
 """
-def get_start_x(screen, days):
-  needed_width = (days + 1) * DEFAULT_WIDTH
-  width = screen.getmaxyx()[1]
-  return (width - needed_width) >> 1 #bit shifts are cooler than division
+def map_forecasts(screen, current, forecasts):
+  map = {}
+  screen_width = screen.getmaxyx()[1]
+  per_row = screen_width / DEFAULT_WIDTH
+  x = (screen_width - DEFAULT_WIDTH * per_row) >> 1
+  y = START_HEIGHT
+  map[(x,y)] = current
+  for forecast in forecasts:
+    x += DEFAULT_WIDTH
+    if x + DEFAULT_WIDTH > screen_width:
+      x = (screen_width - DEFAULT_WIDTH * per_row) >> 1
+      y += DEFAULT_HEIGHT
+    map[(x,y)] = forecast
+  return map
+
 
 """ Draws the application title in the centre
 :param screen: ncurses screen object to draw on
 """
 def display_title(screen):
   y_x = screen.getmaxyx()
-  mid = (y_x[1] - len(TITLE)) >> 1 #yay more shifts
+  mid = (y_x[1] - len(TITLE)) >> 1 
   screen.addstr(1,mid, TITLE, curses.color_pair(RED))
 
 
@@ -300,6 +320,7 @@ def print_loading(screen):
   screen.border(0)
   display_title(screen)
   screen.addstr(y, x, loading, curses.color_pair(YELLOW))
+  screen.leaveok(1)
   screen.refresh()
 
 def main(stdscr, options):
@@ -318,12 +339,13 @@ def main(stdscr, options):
       latlong = str(lat) + "," + str(long)
     weather = get_weather(latlong, city, zip, pc, days)
     forecasts = get_forecasts(weather, days)
-    display(stdscr, weather, forecasts)
+    current_weather = get_current_conditions(weather)
+    display(stdscr, current_weather, forecasts)
 
 if __name__ == "__main__":
   options = parse_options()
   try:
     curses.wrapper(main, options)
   except Exception as e:
-    print "Error: Problem rendering weather results. Try increasing your terminal size"
+    print "Error: Problem rendering weather results. Try increasing your terminal size or choose less days"
     print e
