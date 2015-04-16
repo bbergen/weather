@@ -28,8 +28,8 @@ PREFIX = "https://api.worldweatheronline.com/free/v2/weather.ashx?"
 FORMAT = "&format=json"
 IP_FETCH = "http://myexternalip.com/raw"
 TITLE = "Welcome to Bryan's Weather App"
-DEFAULT_WIDTH = 30
-DEFAULT_HEIGHT = 10
+DEFAULT_WIDTH = 40
+DEFAULT_HEIGHT = 26
 START_HEIGHT = 3
 
 RED = 1
@@ -37,9 +37,35 @@ GREEN = 2
 YELLOW = 3
 CYAN = 4
 
+
+""" Encapsulation of a forecast
+"""
+class Forecast:
+    def __init__(self, date, minTempC, maxTempC, uvIndex, sunrise, sunset, desc, icon):
+      self.date = date
+      self.minTempC = minTempC
+      self.maxTempC = maxTempC
+      self.uvIndex = uvIndex
+      self.sunrise = sunrise
+      self.sunset = sunset
+      self.desc = desc
+      self.icon = icon
+
+    def display_image(self, screen, x, y):
+      ascii_image(get_image(self.icon), screen, x, y)
+
+    def display(self, screen, startx, starty):
+      screen.addstr(starty, startx, "Forecast for " + self.date, curses.color_pair(YELLOW))
+      screen.addstr(starty + 2, startx, self.desc, curses.color_pair(GREEN))
+      screen.addstr(starty + 3, startx, "Min Temp C: " + self.minTempC)
+      screen.addstr(starty + 4, startx, "Max Temp C: " + self.maxTempC)
+      screen.addstr(starty + 5, startx, "UV Index: " + self.uvIndex)
+      screen.addstr(starty + 6, startx, "Sunrise: " + self.sunrise)
+      screen.addstr(starty + 7, startx, "Sunset: " + self.sunset)
+
 """ Encapsulates the current weather conditions
 """
-class Current:
+class Current(Forecast):
     def __init__(self, temp_c, temp_f, icon, windspeed, windDir, desc, humidity):
       self.temp_c = temp_c
       self.temp_f = temp_f
@@ -57,42 +83,22 @@ class Current:
       screen.addstr(y + 5,x, "Windspeed: " + self.windspeed)
       screen.addstr(y + 6,x, "Wind Dir: " + self.windDir)
       screen.addstr(y + 7,x, "Humidity: " + self.humidity)
-      #ascii_image(get_image(self.icon), screen)
-
-""" Encapsulation of a forecast
-"""
-class Forecast:
-    def __init__(self, date, minTempC, maxTempC, uvIndex, sunrise, sunset, desc, icon):
-      self.date = date
-      self.minTempC = minTempC
-      self.maxTempC = maxTempC
-      self.uvIndex = uvIndex
-      self.sunrise = sunrise
-      self.sunset = sunset
-      self.desc = desc
-      self.icon = icon
-
-    def display(self, screen, startx, starty):
-      screen.addstr(starty, startx, "Forecast for " + self.date, curses.color_pair(YELLOW))
-      screen.addstr(starty + 2, startx, self.desc, curses.color_pair(GREEN))
-      screen.addstr(starty + 3, startx, "Minimum Temp: " + self.minTempC)
-      screen.addstr(starty + 4, startx, "Maximum Temp: " + self.maxTempC)
-      screen.addstr(starty + 5, startx, "UV Index: " + self.uvIndex)
-      screen.addstr(starty + 6, startx, "Sunrise: " + self.sunrise)
-      screen.addstr(starty + 7, startx, "Sunset: " + self.sunset)
 
 """ Displays the retrieved results in an ncurses display
 :params screen: ncurses screen to present upon
 :params current: the current weather object
 :params forecasts: a collection of retrieved forecasts
+:params icon: if the icons should be displayed
 """
-def display(screen, current, forecasts):
+def display(screen, current, forecasts, icons):
   screen.clear()
   screen.border(0)
   display_title(screen)
-  display_map = map_forecasts(screen, current, forecasts)
+  display_map = map_forecasts(screen, current, forecasts, icons)
   for key in display_map:
     display_map[key].display(screen, key[0], key[1])
+    if icons:
+      display_map[key].display_image(screen, key[0], key[1] + 10)
   screen.refresh()
   screen.getch() # pause the app until user input
   finalize_display()
@@ -101,9 +107,10 @@ def display(screen, current, forecasts):
 :param screen: The ncurses screen object
 :param forecasts: The series of forecasts
 :param current: The current weather conditions
+:param icons: if icons are to be shown
 :returns: a map of (x,y) tuples to forecasts
 """
-def map_forecasts(screen, current, forecasts):
+def map_forecasts(screen, current, forecasts, icons):
   map = {}
   screen_width = screen.getmaxyx()[1]
   per_row = screen_width / DEFAULT_WIDTH
@@ -114,7 +121,10 @@ def map_forecasts(screen, current, forecasts):
     x += DEFAULT_WIDTH
     if x + DEFAULT_WIDTH > screen_width:
       x = (screen_width - DEFAULT_WIDTH * per_row) >> 1
-      y += DEFAULT_HEIGHT
+      if icons:
+        y += DEFAULT_HEIGHT
+      else:
+        y += 10
     map[(x,y)] = forecast
   return map
 
@@ -165,8 +175,10 @@ def get_image(url):
 """ Converts an image to ascii, and draws in on screen
 :params i: the image to convert
 :params screen: an ncurses screen object to draw upon
+:params start_x: x axis location to start drawing
+:params start_y: y axis location to start drawing
 """
-def ascii_image(i, screen):
+def ascii_image(i, screen, start_x, start_y):
     tones = [
         " ",
         " ",
@@ -179,7 +191,7 @@ def ascii_image(i, screen):
     bounds = [
         36, 72, 108, 144, 180, 216, 252]
     image = Image.open(i)
-    image = image.resize((80, 40), Image.BILINEAR)
+    image = image.resize((30, 15), Image.BILINEAR)
     image = image.convert("L")
     str = ""
     for y in range(0, image.size[1]):
@@ -188,7 +200,7 @@ def ascii_image(i, screen):
         row = bisect(bounds, bright)
         possible = tones[row]
         str = str + possible[random.randint(0, len(possible) - 1)]
-      screen.addstr(y + 15, 2, str, curses.color_pair(CYAN))
+      screen.addstr(y + start_y, start_x, str, curses.color_pair(CYAN))
       str = ""
 
 """ Parses a json object for a list of forecasts
@@ -266,17 +278,20 @@ def get_current_conditions(json_result):
 :returns: An options object containing commandline arguments
 """
 def parse_options():
-    parser = optparse.OptionParser('%prog ' + \
+    parser = optparse.OptionParser('%prog ' + '[-i] ' + \
         '[-c <city> | -z <zipcode> | ' + \
         '-p <postal code>] [-d <days of forecast>]')
     parser.add_option('-c', dest='city', type='string', \
-        help='target for remote forecast')
+        help='Target for remote forecast')
     parser.add_option('-z', dest='zip', type='string', \
-        help='target for remote forecast')
+        help='Target for remote forecast')
     parser.add_option('-p', dest='pc', type='string', \
-        help='target for remote forecast')
+        help='Target for remote forecast')
     parser.add_option('-d', dest='days', type='int', \
-        help='quantity of future forecasting. max 5')
+        help='Quantity of future forecasting. max 5')
+    parser.add_option('-i', dest='icons', default=False, \
+        action='store_true', \
+        help='Displays ascii icons of the weather. Requires a large terminal')
     (options, args) = parser.parse_args()
     c = options.city == None
     z = options.zip == None
@@ -336,11 +351,10 @@ def main(stdscr, options):
       record = get_location_record(ip)
       lat = record['latitude']
       long = record['longitude']
-      latlong = str(lat) + "," + str(long)
     weather = get_weather(latlong, city, zip, pc, days)
     forecasts = get_forecasts(weather, days)
     current_weather = get_current_conditions(weather)
-    display(stdscr, current_weather, forecasts)
+    display(stdscr, current_weather, forecasts, options.icons)
 
 if __name__ == "__main__":
   options = parse_options()
