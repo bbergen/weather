@@ -37,10 +37,9 @@ GREEN = 2
 YELLOW = 3
 CYAN = 4
 
-
-""" Encapsulation of a forecast
-"""
 class Forecast:
+    """ Encapsulation of a forecast
+    """
     def __init__(self, date, minTempC, maxTempC, uvIndex, sunrise, sunset, desc, icon):
       self.date = date
       self.minTempC = minTempC
@@ -63,10 +62,10 @@ class Forecast:
       screen.addstr(y + 6, x, "Sunrise: " + self.sunrise)
       screen.addstr(y + 7, x, "Sunset: " + self.sunset)
 
-""" Encapsulates the current weather conditions
-    Extends from Forecast
-"""
 class Current(Forecast):
+    """ Encapsulates the current weather conditions
+    Extends from Forecast
+    """
     def __init__(self, temp_c, temp_f, icon, windspeed, windDir, desc, humidity):
       self.temp_c = temp_c
       self.temp_f = temp_f
@@ -85,13 +84,13 @@ class Current(Forecast):
       screen.addstr(y + 6, x, "Wind Dir: " + self.windDir)
       screen.addstr(y + 7, x, "Humidity: " + self.humidity)
 
-""" Displays the retrieved results in an ncurses display
-:params screen: ncurses screen to present upon
-:params current: the current weather object
-:params forecasts: a collection of retrieved forecasts
-:params icons: if the icons should be displayed
-"""
 def display(screen, current, forecasts, icons):
+  """ Displays the retrieved results in an ncurses display
+  :params screen: ncurses screen to present upon
+  :params current: the current weather object
+  :params forecasts: a collection of retrieved forecasts
+  :params icons: if the icons should be displayed
+  """
   screen.clear()
   screen.border(0)
   display_title(screen)
@@ -104,14 +103,14 @@ def display(screen, current, forecasts, icons):
   screen.getch() # pause the app until user input
   finalize_display()
 
-""" Maps each forcast to an x,y coordinate
-:param screen: The ncurses screen object
-:param forecasts: The series of forecasts
-:param current: The current weather conditions
-:param icons: if icons are to be shown
-:returns: a map of (x,y) tuples to forecasts
-"""
 def map_forecasts(screen, current, forecasts, icons):
+  """ Maps each forcast to an x,y coordinate
+  :param screen: The ncurses screen object
+  :param forecasts: The series of forecasts
+  :param current: The current weather conditions
+  :param icons: if icons are to be shown
+  :returns: a map of (x,y) tuples to forecasts
+  """
   map = {}
   screen_width = screen.getmaxyx()[1]
   needed_width = DEFAULT_WIDTH if icons else 30
@@ -128,19 +127,17 @@ def map_forecasts(screen, current, forecasts, icons):
     map[(x,y)] = forecast
   return map
 
-
-""" Draws the application title in the centre
-:param screen: ncurses screen object to draw on
-"""
 def display_title(screen):
+  """ Draws the application title in the centre
+  :param screen: ncurses screen object to draw on
+  """
   y_x = screen.getmaxyx()
   mid = (y_x[1] - len(TITLE)) >> 1 
   screen.addstr(1,mid, TITLE, curses.color_pair(RED))
 
-
-""" Initializes the color settings
-"""
 def init_color_pairs():
+  """ Initializes the color settings
+  """
   curses.start_color()
   curses.use_default_colors()
   curses.init_pair(RED, curses.COLOR_RED, -1)
@@ -148,37 +145,37 @@ def init_color_pairs():
   curses.init_pair(YELLOW, curses.COLOR_YELLOW, -1)
   curses.init_pair(CYAN, curses.COLOR_CYAN, -1)
 
-""" Initializes the ncurses tools
-"""
 def init_screen():
+  """ Initializes the ncurses tools
+  """
   screen = curses.initscr()
   curses.noecho()
   init_color_pairs()
   return screen
 
-""" Returns screen to default state
-"""
 def finalize_display():
+  """ Returns screen to default state
+  """
   curses.echo()
   curses.endwin()
 
-""" Fetches an image from a url
-:param url: url of the image 
-:returns: a file descriptor to the image
-"""
 def get_image(url):
-    imageReq = urllib2.Request(url)
-    imageUrl = urllib2.urlopen(imageReq)
-    image = io.BytesIO(imageUrl.read())
-    return image
+  """ Fetches an image from a url
+  :param url: url of the image 
+  :returns: a file descriptor to the image
+  """
+  imageReq = urllib2.Request(url)
+  imageUrl = urllib2.urlopen(imageReq)
+  image = io.BytesIO(imageUrl.read())
+  return image
 
-""" Converts an image to ascii, and draws in on screen
-:params i: the image to convert
-:params screen: an ncurses screen object to draw upon
-:params start_x: x axis location to start drawing
-:params start_y: y axis location to start drawing
-"""
 def ascii_image(i, screen, start_x, start_y):
+    """ Converts an image to ascii, and draws in on screen
+    :params i: the image to convert
+    :params screen: an ncurses screen object to draw upon
+    :params start_x: x axis location to start drawing
+    :params start_y: y axis location to start drawing
+    """
     tones = [
         " ",
         " ",
@@ -202,12 +199,12 @@ def ascii_image(i, screen, start_x, start_y):
         str = str + possible[random.randint(0, len(possible) - 1)]
       screen.addstr(y + start_y, start_x, str, curses.color_pair(GREEN))
 
-""" Parses a json object for a list of forecasts
-:param json_result: Json response from weather api
-:param days: number of days requested
-:returns: a collection of Weather objects
-"""
 def get_forecasts(json_result, days):
+    """ Parses a json object for a list of forecasts
+    :param json_result: Json response from weather api
+    :param days: number of days requested
+    :returns: a collection of Weather objects
+    """
     raw_forecasts = json_result['data']['weather']
     forecast_range = []
     if days > 0:
@@ -225,16 +222,16 @@ def get_forecasts(json_result, days):
         forecast_range.append(forecast)
     return forecast_range
 
-""" Queries weather server with lat, long
-:param lat: latitude of weather query target
-:param long: longitude of weather query target
-:param city: location of query
-:param zip: location of query
-:param pc: location of query
-:param days: number of days (1-5) of forecast
-:returns: a JSON object containing weather data for target
-"""
 def get_weather(latlong, city, zip, pc, days):
+    """ Queries weather server with lat, long
+    :param lat: latitude of weather query target
+    :param long: longitude of weather query target
+    :param city: location of query
+    :param zip: location of query
+    :param pc: location of query
+    :param days: number of days (1-5) of forecast
+    :returns: a JSON object containing weather data for target
+    """
     latlong = "" if latlong == None else latlong
     city = "" if city == None else city
     zip = "" if zip == None else zip
@@ -244,25 +241,25 @@ def get_weather(latlong, city, zip, pc, days):
     response = urllib2.urlopen(weather_url).read()
     return json.loads(response)
 
-""" Fetches the current public IP 
-:returns: A string with the local host's public IP
-"""
 def get_ip():
+    """ Fetches the current public IP 
+    :returns: A string with the local host's public IP
+    """
     return urllib2.urlopen(IP_FETCH).read()
 
-""" Fetches a Record from the GeoIP database
-:param ip: The ip address to lookup in GeoIP
-:returns: A matching record from the database
-"""
 def get_location_record(ip):
+    """ Fetches a Record from the GeoIP database
+    :param ip: The ip address to lookup in GeoIP
+    :returns: A matching record from the database
+    """
     geo_con = pygeoip.GeoIP('/opt/GeoIP/GeoIP.dat')
     return geo_con.record_by_addr(ip)
 
-""" Parses the json weather result for the current conditions
-:param json_result: json object from weather api
-:returns: the results encapsulated in a Current object
-"""
 def get_current_conditions(json_result):
+    """ Parses the json weather result for the current conditions
+    :param json_result: json object from weather api
+    :returns: the results encapsulated in a Current object
+    """
     current = json_result['data']['current_condition'][0]
     cur_weather = Current(current['temp_C'], \
         current['temp_F'], \
@@ -273,10 +270,10 @@ def get_current_conditions(json_result):
         current['humidity'])
     return cur_weather
 
-""" Parses command line options and handles errors
-:returns: An options object containing commandline arguments
-"""
 def parse_options():
+    """ Parses command line options and handles errors
+    :returns: An options object containing commandline arguments
+    """
     parser = optparse.OptionParser('%prog ' + '[-i] ' + \
         '[-c <city> | -z <zipcode> | ' + \
         '-p <postal code>] [-d <days of forecast>]')
@@ -312,20 +309,20 @@ def parse_options():
     else:
       return options
 
-""" Formats the city string for the weather api url
-:param city: The city name as entered by user
-:returns: The city name stripped of spaces
-"""
 def format_city(city):
+  """ Formats the city string for the weather api url
+  :param city: The city name as entered by user
+  :returns: The city name stripped of spaces
+  """
   if city != None:
     return city.replace(' ', '+')
   else:
     return None
 
-""" Prints a message to the screen while data is fetched
-:param screen: ncurses screen to write upon
-"""
 def print_loading(screen):
+  """ Prints a message to the screen while data is fetched
+  :param screen: ncurses screen to write upon
+  """
   y_x = screen.getmaxyx()
   loading = "Loading Weather Data..."
   l = len(loading)
@@ -338,6 +335,10 @@ def print_loading(screen):
   screen.refresh()
 
 def main(stdscr, options):
+    """ Main Entry Point when running as script
+    :param stdscr: ncurses screen object
+    :param options: commandline args
+    """
     init_color_pairs()
     print_loading(stdscr)
     days = options.days if options.days != None else 0 
